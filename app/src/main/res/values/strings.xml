@@ -19,6 +19,8 @@
     <string name="no">No</string>
     <string name="import_button">Import</string>
     <string name="export_button">Export</string>
+    <string name="mute_button">Mute</string>
+    <string name="volume_button">Volume</string>
 
     <string-array name="sound_banks_placeholder">
         <item>Sound Bank 1</item>

@@ -1,19 +1,22 @@
 package com.example.soundboard
 
+import android.content.Context
+import android.media.AudioManager
 import android.os.Bundle
 import android.util.Log
 import android.view.LayoutInflater
 import android.view.View
 import android.view.ViewGroup
+import android.widget.AdapterView
+import android.widget.ArrayAdapter
+import android.widget.ImageButton
+import android.widget.Spinner
+import androidx.appcompat.app.AlertDialog
 import androidx.fragment.app.Fragment
 import androidx.fragment.app.activityViewModels
 import androidx.lifecycle.lifecycleScope
-import kotlinx.coroutines.launch
-import android.widget.AdapterView
-import android.widget.ArrayAdapter
-import android.widget.Spinner
 import kotlinx.coroutines.flow.first
-import androidx.appcompat.app.AlertDialog
+import kotlinx.coroutines.launch
 
 class SoundbankListFragment : Fragment() {
 
@@ -21,12 +24,15 @@ class SoundbankListFragment : Fragment() {
     private lateinit var soundbankRepository: SoundbankRepository
     private lateinit var settingsRepository: SettingsRepository
     private lateinit var soundBankSpinner: Spinner
+    private lateinit var audioManager: AudioManager
 
     override fun onCreateView(
         inflater: LayoutInflater, container: ViewGroup?,
         savedInstanceState: Bundle?
     ): View? {
         val view = inflater.inflate(R.layout.fragment_soundbank_list, container, false)
+
+        audioManager = requireContext().getSystemService(Context.AUDIO_SERVICE) as AudioManager
 
         val database = AppDatabase.getDatabase(requireContext())
         soundbankRepository = SoundbankRepository(database.soundbankDao())
@@ -85,6 +91,13 @@ class SoundbankListFragment : Fragment() {
             true // Consume the long-click event
         }
 
+        // Set up mute/unmute buttons
+        val muteButton: ImageButton = view.findViewById(R.id.muteButton)
+
+        muteButton.setOnClickListener {
+            toggleMute(muteButton)
+        }
+
         return view
     }
 
@@ -106,5 +119,17 @@ class SoundbankListFragment : Fragment() {
                 dialog.cancel()
             }
             .show()
+    }
+
+    private fun toggleMute(muteButton: ImageButton) {
+        if (audioManager.getStreamVolume(AudioManager.STREAM_MUSIC) == 0) {
+            // Unmute (set volume to a reasonable level, e.g., half of max volume)
+            audioManager.setStreamVolume(AudioManager.STREAM_MUSIC, audioManager.getStreamMaxVolume(AudioManager.STREAM_MUSIC) / 2, 0)
+            muteButton.setImageResource(R.drawable.volume) // Change to volume image
+        } else {
+            // Mute
+            audioManager.setStreamVolume(AudioManager.STREAM_MUSIC, 0, 0)
+            muteButton.setImageResource(R.drawable.mute) // Change to mute image
+        }
     }
 }
