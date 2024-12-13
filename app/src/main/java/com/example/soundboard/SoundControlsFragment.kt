@@ -13,9 +13,13 @@ import android.widget.Spinner
 import androidx.fragment.app.Fragment
 import androidx.fragment.app.activityViewModels
 import androidx.lifecycle.Observer
+import retrofit2.Call
+import retrofit2.Callback
+import retrofit2.Response
 
 class SoundControlsFragment : Fragment() {
     private val viewModel: SoundViewModel by activityViewModels()
+    private val soundPlayers: MutableMap<Int, MediaPlayer> = mutableMapOf()
 
     // Updated sound IDs
     private var soundIds = listOf(
@@ -36,8 +40,7 @@ class SoundControlsFragment : Fragment() {
         182472 // Car Horn
     )
 
-    lateinit var currentSoundBank: MutableList<Int>
-    private lateinit var soundAdapter: ArrayAdapter<String>
+    var currentSoundBank: MutableList<Int> = soundIds.subList(0, 5).toMutableList() // First 5 sounds initially
 
     override fun onCreateView(
         inflater: LayoutInflater, container: ViewGroup?,
@@ -69,23 +72,13 @@ class SoundControlsFragment : Fragment() {
             "Thunder", "Wind", "Waves", "Fire Crackling", "Car Horn"
         )
 
-        soundAdapter =
+        val soundAdapter =
             ArrayAdapter(requireContext(), android.R.layout.simple_spinner_item, soundNames).also { adapter ->
                 adapter.setDropDownViewResource(android.R.layout.simple_spinner_dropdown_item)
             }
 
-        // Initialize currentSoundBank from ViewModel
-        currentSoundBank = viewModel.currentSoundBank.value?.toMutableList() ?: soundIds.subList(0, 5).toMutableList()
-
         for ((index, spinner) in soundSpinners.withIndex()) {
             spinner.adapter = soundAdapter
-
-            // Set initial selection for Spinners
-            val soundNameIndex = soundIds.indexOf(currentSoundBank[index])
-            if (soundNameIndex != -1) {
-                spinner.setSelection(soundNameIndex, false)
-            }
-
             spinner.onItemSelectedListener = object : AdapterView.OnItemSelectedListener {
                 override fun onItemSelected(
                     parent: AdapterView<*>,
@@ -93,12 +86,24 @@ class SoundControlsFragment : Fragment() {
                     position: Int,
                     id: Long
                 ) {
-                    val selectedSoundId = soundIds[position]
+                    val selectedSound = parent.getItemAtPosition(position).toString()
+                    Log.d("SoundControls", "Button ${index + 1} sound updated to: $selectedSound")
 
-                    // Update ViewModel only if the selected sound is different
-                    if (selectedSoundId != currentSoundBank[index]) {
-                        currentSoundBank[index] = selectedSoundId
-                        viewModel.updateSoundId(index, selectedSoundId)
+                    // Find the sound ID corresponding to the selected sound name
+                    val newSoundId = soundIds.getOrNull(soundNames.indexOf(selectedSound))
+
+                    // Update ViewModel with the new sound ID only if it's different and within bounds
+                    newSoundId?.let {
+                        if (index in 0 until currentSoundBank.size && it != currentSoundBank[index]) {
+                            val updatedSoundBank = currentSoundBank.toMutableList()
+                            updatedSoundBank[index] = newSoundId
+                            currentSoundBank = updatedSoundBank.toMutableList()
+                            viewModel.updateCurrentSoundBank(currentSoundBank)
+                            Log.d("SoundControls", "Updated currentSoundBank: $currentSoundBank")
+
+                            // Fetch the new sound
+                            fetchSoundsByIds(listOf(newSoundId))
+                        }
                     }
                 }
 
@@ -110,8 +115,6 @@ class SoundControlsFragment : Fragment() {
         for ((index, button) in soundButtons.withIndex()) {
             button.setOnClickListener {
                 val soundId = currentSoundBank.getOrNull(index)
-                val soundPlayers = viewModel.soundPlayers.value ?: emptyMap()
-
                 if (soundId != null && soundPlayers.containsKey(soundId)) {
                     val player = soundPlayers[soundId]
                     if (player?.isPlaying == true) {
@@ -128,19 +131,24 @@ class SoundControlsFragment : Fragment() {
             }
         }
 
-        // Observer for currentSoundBank
-        viewModel.currentSoundBank.observe(viewLifecycleOwner, Observer { soundBank ->
-            if (currentSoundBank != soundBank) {
-                currentSoundBank = soundBank.toMutableList()
+        // Fetch sounds for the current sound bank
+        fetchSoundsByIds(currentSoundBank)
 
-                // Update Spinners without triggering onItemSelected
-                for ((index, spinner) in soundSpinners.withIndex()) {
-                    val soundNameIndex = soundIds.indexOf(currentSoundBank[index])
-                    if (soundNameIndex != -1) {
-                        if (spinner.selectedItemPosition != soundNameIndex) {
-                            spinner.setSelection(soundNameIndex, false)
-                        }
-                    }
+        // Observe the currentSoundBank in the ViewModel
+        viewModel.currentSoundBank.observe(viewLifecycleOwner, Observer { soundBank ->
+            // Only fetch new sounds if the soundBank is different
+            val newSoundIds = soundBank.filter { !currentSoundBank.contains(it) }
+            if (newSoundIds.isNotEmpty()) {
+                fetchSoundsByIds(newSoundIds)
+            }
+            currentSoundBank = soundBank.toMutableList()
+            Log.d("SoundControls", "currentSoundBank: $currentSoundBank")
+            // Update the Spinners with the correct sound names
+            for (i in soundBank.indices) {
+                val soundNameIndex = this.soundIds.indexOf(soundBank[i])
+                if (soundNameIndex != -1) {
+                    val soundName = soundNames[soundNameIndex]
+                    updateSpinnerWithSoundName(soundSpinners[i], soundName)
                 }
             }
         })
@@ -148,8 +156,61 @@ class SoundControlsFragment : Fragment() {
         return view
     }
 
+    private fun fetchSoundsByIds(ids: List<Int>) {
+        ids.forEach { id ->
+            if (!soundPlayers.containsKey(id)) {
+                Log.d("API", "Fetching sound with ID: $id")
+                val call = RetrofitInstance.api.getSoundById(id)
+                call.enqueue(object : Callback<Sound> {
+                    override fun onResponse(call: Call<Sound>, response: Response<Sound>) {
+                        if (response.isSuccessful) {
+                            val sound = response.body()
+                            sound?.let {
+                                Log.d(
+                                    "API",
+                                    "Fetched sound: ID: ${it.id}, Name: ${it.name}, URL: ${it.url}"
+                                )
+                                val previewUrl = it.previews["preview-hq-mp3"]
+                                    ?: it.previews["preview-lq-mp3"]
+                                Log.d("API", "Using preview URL: $previewUrl")
+
+                                soundPlayers[id] = MediaPlayer().apply {
+                                    setDataSource(previewUrl as String)
+                                    setOnPreparedListener {
+                                        Log.d("MediaPlayer", "Sound $id is prepared")
+                                    }
+                                    setOnErrorListener { mp, what, extra ->
+                                        Log.e(
+                                            "MediaPlayer",
+                                            "Error on sound $id: what=$what, extra=$extra"
+                                        )
+                                        false
+                                    }
+                                    prepareAsync()
+                                }
+                            } ?: Log.d("API", "No sound found for ID: $id")
+                        } else {
+                            Log.e(
+                                "API",
+                                "Failed to fetch sound for ID: $id, Response code: ${response.code()}"
+                            )
+                        }
+                    }
+
+                    override fun onFailure(call: Call<Sound>, t: Throwable) {
+                        Log.e("API", "Error fetching sound for ID: $id, Message: ${t.message}")
+                    }
+                })
+            }
+        }
+    }
+
     override fun onDestroy() {
         super.onDestroy()
+        soundPlayers.forEach { (_, player) ->
+            player.release()
+        }
+        soundPlayers.clear()
     }
 
     fun loadSoundBank(soundbank: Soundbank) {
@@ -157,6 +218,15 @@ class SoundControlsFragment : Fragment() {
         if (soundIds.size == 5) {
             // Update the ViewModel with the new soundbank
             viewModel.updateCurrentSoundBank(soundIds)
+        }
+    }
+
+    // Add this function to update the sound names in the Spinners
+    private fun updateSpinnerWithSoundName(spinner: Spinner, soundName: String) {
+        val adapter = spinner.adapter as? ArrayAdapter<String>
+        val position = adapter?.getPosition(soundName) ?: -1
+        if (position != -1) {
+            spinner.setSelection(position)
         }
     }
 }

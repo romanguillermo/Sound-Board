@@ -7,7 +7,7 @@ import retrofit2.http.Path
 import retrofit2.http.Query
 
 interface FreesoundApi {
-    @Headers("Authorization: Token JqN1s6a8zzghshW402DRj6acgJ6BLZQLJA5y4oJK")
+    @Headers("Authorization: Token GUZRyQWmhNzPLMA9WqY0lFSn5jKsHfRLQpNOTfoV")
     @GET("sounds/{id}/")
     fun getSoundById(@Path("id") id: Int): Call<Sound>
 }
