@@ -2,6 +2,8 @@ package com.example.soundboard
 
 import android.os.Bundle
 import android.util.Log
+import android.view.View
+import android.widget.ImageView
 import android.widget.Button
 import android.widget.EditText
 import androidx.activity.viewModels
@@ -38,6 +40,7 @@ class MainActivity : AppCompatActivity() {
         super.onCreate(savedInstanceState)
         setContentView(R.layout.activity_main)
         settingsRepository = SettingsRepository(this)
+
 
         val database = AppDatabase.getDatabase(this)
         soundbankRepository = SoundbankRepository(database.soundbankDao())

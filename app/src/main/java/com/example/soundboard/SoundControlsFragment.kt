@@ -1,15 +1,18 @@
 package com.example.soundboard
 
+import android.annotation.SuppressLint
 import android.media.MediaPlayer
 import android.os.Bundle
 import android.util.Log
 import android.view.LayoutInflater
+import android.view.MotionEvent
 import android.view.View
 import android.view.ViewGroup
 import android.widget.AdapterView
 import android.widget.ArrayAdapter
 import android.widget.Button
 import android.widget.Spinner
+import android.widget.ImageView
 import androidx.fragment.app.Fragment
 import androidx.fragment.app.activityViewModels
 import androidx.lifecycle.Observer
@@ -42,11 +45,15 @@ class SoundControlsFragment : Fragment() {
 
     var currentSoundBank: MutableList<Int> = soundIds.subList(0, 5).toMutableList() // First 5 sounds initially
 
+    @SuppressLint("ClickableViewAccessibility")
     override fun onCreateView(
         inflater: LayoutInflater, container: ViewGroup?,
         savedInstanceState: Bundle?
     ): View? {
         val view = inflater.inflate(R.layout.fragment_sound_controls, container, false)
+        val imageView: ImageView = view.findViewById(R.id.soundImageView)
+
+
 
         // Set up sound buttons
         val soundButtons = listOf(
@@ -65,6 +72,55 @@ class SoundControlsFragment : Fragment() {
             view.findViewById<Spinner>(R.id.soundSpinner4),
             view.findViewById<Spinner>(R.id.soundSpinner5)
         )
+
+        val images = listOf(
+            R.drawable.dog,      // Sound 1 - Dog
+            R.drawable.cat,      // Sound 2 - Cat
+            R.drawable.cow,      // Sound 3 - Cow
+            R.drawable.elephant, // Sound 4 - Elephant
+            R.drawable.lion      // Sound 5 - Lion
+        )
+
+        for ((index, button) in soundButtons.withIndex()) {
+            button.setOnTouchListener { _, event ->
+                if (event.action == MotionEvent.ACTION_DOWN) {
+                    // Show the correct image based on the button index
+                    imageView.setImageResource(images[index])
+                    imageView.visibility = View.VISIBLE
+
+                    // Schedule hiding the image after 2 seconds
+                    imageView.postDelayed({
+                        imageView.visibility = View.GONE
+                    }, 2000) // 2000 milliseconds = 2 seconds
+
+                    // Play the correct sound based on the button index
+                    val soundId = currentSoundBank.getOrNull(index) // Get sound ID for the current button
+                    val player = soundId?.let { soundPlayers[it] }
+                    player?.start() ?: Log.e("SoundControls", "No sound found for button at index $index")
+                }
+                true // Consume the touch event
+            }
+        }
+        val randomButton = view.findViewById<Button>(R.id.randomSoundButton)
+        randomButton.setOnClickListener {
+            // Generate a random index for the sound and image
+            val randomIndex = (images.indices).random()
+
+            // Show the corresponding image
+            imageView.setImageResource(images[randomIndex])
+            imageView.visibility = View.VISIBLE
+
+            // Schedule hiding the image after 2 seconds
+            imageView.postDelayed({
+                imageView.visibility = View.GONE
+            }, 2000)
+
+            // Play the corresponding sound
+            val soundId = currentSoundBank.getOrNull(randomIndex)
+            val player = soundId?.let { soundPlayers[it] }
+            player?.start() ?: Log.e("SoundControls", "No sound found for random index $randomIndex")
+        }
+
 
         val soundNames = arrayOf(
             "Dog Bark", "Cat Meow", "Cow Moo", "Elephant Trumpet", "Lion Growl",
@@ -212,7 +268,14 @@ class SoundControlsFragment : Fragment() {
         }
         soundPlayers.clear()
     }
-
+    override fun onResume() {
+        super.onResume()
+        Log.d("SoundControlsFragment", "onResume called for instance: ${this.hashCode()}")
+    }
+    override fun onPause() {
+        super.onPause()
+        Log.d("SoundControlsFragment", "onPause called for instance: ${this.hashCode()}")
+    }
     fun loadSoundBank(soundbank: Soundbank) {
         val soundIds = soundbank.soundIds.split(",").mapNotNull { it.toIntOrNull() }
         if (soundIds.size == 5) {

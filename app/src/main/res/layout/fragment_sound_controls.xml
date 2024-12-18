@@ -10,13 +10,18 @@
         android:layout_height="wrap_content"
         android:orientation="horizontal">
 
+
+
         <Button
             android:id="@+id/Sound1_Button"
             android:layout_width="0dp"
             android:layout_height="wrap_content"
             android:layout_weight="1"
             android:backgroundTint="@color/button_color"
-            android:text="@string/sound_1" />
+            android:focusable="true"
+            android:text="@string/sound_1"
+            android:clickable="true"
+            android:visibility="visible"/>
 
         <Spinner
             android:id="@+id/soundSpinner1"
@@ -24,6 +29,8 @@
             android:layout_height="48dp"
             android:layout_weight="1"
             android:entries="@array/sounds_placeholder" />
+
+
     </LinearLayout>
 
     <LinearLayout
@@ -106,4 +113,21 @@
             android:layout_weight="1"
             android:entries="@array/sounds_placeholder" />
     </LinearLayout>
+
+    <Button
+        android:id="@+id/randomSoundButton"
+        android:layout_width="wrap_content"
+        android:layout_height="wrap_content"
+        android:layout_marginBottom="16dp"
+        android:text="@string/random" />
+
+    <ImageView
+        android:id="@+id/soundImageView"
+        android:layout_width="379dp"
+        android:layout_height="287dp"
+        android:layout_marginTop="16dp"
+        android:contentDescription="@string/sound_image"
+        android:scaleType="centerInside"
+        android:visibility="visible" />
+
 </LinearLayout>

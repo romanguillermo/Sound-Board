@@ -34,7 +34,9 @@
         app:layout_constraintBottom_toTopOf="@+id/saveSoundbankButton"
         app:layout_constraintEnd_toEndOf="parent"
         app:layout_constraintStart_toStartOf="parent"
-        app:layout_constraintTop_toBottomOf="@+id/soundbankListFragment" />
+        app:layout_constraintTop_toBottomOf="@+id/soundbankListFragment" >
+
+    </FrameLayout>
 
     <Button
         android:id="@+id/saveSoundbankButton"
@@ -70,5 +72,7 @@
             android:text="@string/import_button" />
 
     </LinearLayout>
+
+
 
 </androidx.constraintlayout.widget.ConstraintLayout>
